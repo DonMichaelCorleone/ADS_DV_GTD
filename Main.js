@@ -3,7 +3,7 @@ Cesium.BingMapsApi.defaultKey = 'AtzPOZBe-iIHEFJY2xCqo8sxLNzYTkVM6_rhNH8sD0qCr9C
 
 /*Renders the Cesium interface*/
 var viewer = new Cesium.Viewer('cesiumContainer', {
-    navigationHelpButton: false
+    navigationHelpButton: false,
 });
 
 /*
@@ -13,42 +13,85 @@ var viewer = new Cesium.Viewer('cesiumContainer', {
 */
 var types = new Set();
 var types_colors = new Set();
-var startTime = new Date(3000, 0, 0, 0, 0, 0, 0);
-var stopTime = new Date(0, 0, 0, 0, 0, 0, 0);
+var startTime = new Date(2010, 0, 0, 0, 0, 0, 0);
+var stopTime = new Date(2018, 0, 0, 0, 0, 0, 0);
 var stalledEntities = [];
 var geocoder;
 var prevTheme = "dark";
+var paused = false;
+var skipDays = 0;
+var long = 6.943359;
+var lat  = 48.516604;
 
 /*Toggles the control panel in the Cesium view*/
 $("#cb_toggle_display").change(function () {
     $("#menu").toggle("display");
 });
 
-/*Initialization of script on document load, executing the get request to the api. If sucessfull it passes the data to renderfunctions on the Cesium framework*/
+// Initialization of script on document load, executing the get request to the api. If sucessfull it passes the data to renderfunctions on the Cesium framework
 $(document).ready(function () {
-    $.ajax({
-        url: "https://dev.stefanvlems.nl/mazezoom/dataset/feed.php",
-        dataType: 'json',
-        async: false,
-        success: function (data) {
-            init(data);
-        }
-    });
-    geocoder = new google.maps.Geocoder();
-    initConfig();
+    init();
+     window.setInterval(function () {
+        updateTimeMeta();
+    }, 1000);
 });
 
+$(function () {
+    $("#slider").slider({
+            slide: function(event, ui){
+                var values = $( "#slider" ).slider( "option", "value" );
+                skipDays = values;
+            },
+            value: [ 100 ]
+    });
+});
+
+
+
 /* Initialisation of the interface data */
-function init(entityList) {
-    for (var x = 0; x < entityList.length; x++) {
-        let i = entityList[x];
-        calibrateTimeline(i);
-        renderMarkers(i);
-    }
+function init() {
+
+   loadTerrorismData();
     initializeTimeline();
-    renderFilter(types);
+    initConfig();
+    setCameraPosition();
+};
+
+function setCameraPosition(){
+    viewer.camera.flyTo({
+                destination: Cesium.Cartesian3.fromDegrees(long, lat, 3000000.0)
+            });  
 }
 
+function loadTerrorismData() {
+     loadJSON('data.json', function (data) {
+        data = JSON.parse(data);
+        for (var x = 0; x < data.length; x++) {
+            renderMarkers(data[x]);
+        }
+        renderFilter(types);
+    }
+    )
+} 
+
+   
+var dataSourceCollection = new Cesium.DataSourceCollection();
+var dataSourceDisplay = new Cesium.DataSourceDisplay({
+    scene : viewer.scene,
+    dataSourceCollection : dataSourceCollection
+});
+
+
+// var czmlFiles = ["countryborders.czml"];
+
+// czmlFiles.forEach(function(filename) {
+//     var czmlDataSource = new Cesium.CzmlDataSource();
+//     czmlDataSource.load(filename).then(function() {
+
+//         dataSourceCollection.add(czmlDataSource);
+//         dataSourceDisplay.update(new Cesium.JulianDate());
+//     });
+// });
 
 /*Initialization of configuration file, now only loads preset_locations*/
 function initConfig() {
@@ -61,6 +104,7 @@ function initConfig() {
                     }
                     (function () {
                         $(".location_preset").click((function (e) {
+                            geocoder = new google.maps.Geocoder();
                             var address = e.delegateTarget.innerText;
                             geocodeAddress(geocoder, address);
                             $("#location_presets_toggle_button").html(address + '<span class="caret" ></span>');
@@ -107,11 +151,12 @@ function geocodeAddress(geocoder, value) {
     geocoder.geocode({
         'address': value
     }, function (results, status) {
+        console.log(results);
         if (status === 'OK') {
             let lat = results[0].geometry.location.lat();
             let long = results[0].geometry.location.lng();
             viewer.camera.flyTo({
-                destination: Cesium.Cartesian3.fromDegrees(long, lat, 15000.0)
+                destination: Cesium.Cartesian3.fromDegrees(long, lat, 1500000.0)
             });
         } else {
             console.log('Geocode was not successful for the following reason: ' + status);
@@ -121,7 +166,6 @@ function geocodeAddress(geocoder, value) {
 
 // Changes the theme based on the selected radiobutton
 function changeTheme(theme) {
-    
     cesiumContainer = document.getElementById("cesiumContainer");
     cesiumContainer.className = "";
     cesiumContainer.className = theme;
@@ -131,27 +175,6 @@ function changeTheme(theme) {
     changeButtons(theme);
 }
 
-/*Calibrates the timeline values, checking for the minimal start and end time if present on the object i
-  @i : Single entity Json object
-*/
-function calibrateTimeline(i) {
-    let context = this;
-    let entityStartTime = i.location.start;
-    let entityEndTime = i.location.end;
-    if (entityStartTime !== null) {
-        entityStartTime = new Date(entityStartTime, 0, 0, 0, 0, 0, 0);
-        if (entityStartTime < context.startTime) {
-            context.startTime = entityStartTime;
-        }
-    }
-    if (entityEndTime !== null) {
-        entityEndTime = new Date(entityEndTime, 0, 0, 0, 0, 0, 0);
-        if (entityEndTime > context.stopTime) {
-            context.stopTime = entityEndTime;
-        }
-    }
-}
-
 /*After calibration for each item the timeline is initializes, set to focus on the start point of the two date ranges*/
 function initializeTimeline() {
     let startTime = new Cesium.JulianDate.fromDate(this.startTime);
@@ -159,25 +182,38 @@ function initializeTimeline() {
     viewer.clock.startTime = startTime;
     viewer.clock.shouldAnimate = true;
     viewer.clock.stopTime = stopTime;
+    // clockStep : Cesium.ClockStep.TICK_DEPENDENT;
+    // viewer.clock.multiplier = 5;
     viewer.clock.currentTime = startTime;
     viewer.clock.clockRange = Cesium.ClockRange.CLAMPED;
     viewer.timeline.updateFromClock();
     viewer.timeline.zoomTo(startTime, stopTime);
-    window.setInterval(function () {
-        updateTimeMeta();
-    }, 1800);
+   
 }
 
 /* Adds a julian function to the Date prototype */
 Date.prototype.getJulian = function () {
     return Math.floor((this / 86400000) - (this.getTimezoneOffset() / 1440) + 2440587.5);
 }
+/**Listener for the clock animation pause button */
+Cesium.knockout.getObservable(viewer.animation.viewModel.clockViewModel, 'shouldAnimate').subscribe(function (value) {
+    if (paused) {
+        console.log('paused', paused);
+        paused = false;
+    } else {
+        paused = true;
+    }
+});
+
 
 /*
     Updates the globe to match the selected time
 */
 function updateTimeMeta() {
     let currentTime = viewer.clock.currentTime;
+    if (paused == false) {
+        Cesium.JulianDate.addDays(currentTime, skipDays, viewer.clock.currentTime);
+    }
     var context = this;
     for (var i = 0; i < viewer.entities._entities.length; i++) {
         let entity = viewer.entities._entities._array[i];
@@ -209,12 +245,12 @@ function getTypeRandomColor(type) {
     @timeInterval the constructed timeInterval, note the object's properties
  */
 function createInterval(i) {
-    let intervalStartTime = new Date(i.location.start, 0, 0, 0, 0, 0, 0);
+    // let intervalStartTime = new Date(i.iyear, i.imonth, i.iday, 0, 0, 0, 0);
+    let intervalStartTime = new Date(i.iyear, 0, 0, 0, 0, 0, 0);
+    let intervalEndTime = new Date(i.iyear + 1, 0, 0, 0, 0, 0);
     intervalStartTime = intervalStartTime.toISOString();
-
-    let intervalEndTime = new Date(i.location.end, 0, 0, 0, 0, 0, 0);
+    // let intervalEndTime = new Date(i.iyear + 1, i.imonth, i.iday, 0, 0, 0, 0);
     intervalEndTime = intervalEndTime.toISOString();
-
     var timeInterval = new Cesium.TimeInterval({
         start: Cesium.JulianDate.fromIso8601(intervalStartTime),
         stop: Cesium.JulianDate.fromIso8601(intervalEndTime),
@@ -232,11 +268,15 @@ function createInterval(i) {
 function renderMarkers(entity) {
     let context = this;
     var i = entity;
-    var type = i.location.type;
+    var type = i.attacktype1_txt;
 
     if (!types.has(type)) {
         let colorCode = {
-            color: Cesium.Color.fromRandom(),
+            color: Cesium.Color.fromRandom({    
+            maximumRed : 0.75,
+            maximummGreen : 0.75,
+            maximumBlue : 0.75,
+    alpha : 1.0}),
             type: type
         }
         types_colors.add(colorCode);
@@ -245,43 +285,52 @@ function renderMarkers(entity) {
     var entityColor = getTypeRandomColor(type);
 
     viewer.entities.add({
-        name: i.location.title,
-        id: i.location.id,
+        name: i.type,
+        id: i.eventid,
+        data: i,
         type: type,
         show: false,
         filtered: false,
         interval: context.createInterval(i),
         /*In the future we can add anything we want to the modal by adding properties to the description key*/
-        description: "<h1 style='color: " + entityColor.toCssColorString() + "' >Type : " + i.location.type + "</h1><h1>Start : " + i.location.start + " End:  " + i.location.end + "</h1><p>" + "Description : " + i.location.description + "</p>",
-        position: Cesium.Cartesian3.fromDegrees(i.location.point[0].lon, i.location.point[0].lat),
+        description: "<h1 style='color: " + entityColor.toCssColorString() + "' >" + type + "</h1><h1>" + new Date(i.iyear,i.imonth,i.iday).toString() + "</h1><p>" + i.summary + "</p>",
+        position: Cesium.Cartesian3.fromDegrees(i.longitude, i.latitude),
+
         point: {
             pixelSize: 5,
-            color: getTypeRandomColor(i.location.type),
+            color: getTypeRandomColor(type),
             outlineColor: Cesium.Color.WHITE,
             outlineWidth: 2
         },
-        label: {
-            text: i.location.title,
-            font: '14pt monospace',
-            style: Cesium.LabelStyle.FILL_AND_OUTLINE,
-            outlineWidth: 2,
-            verticalOrigin: Cesium.VerticalOrigin.BOTTOM,
-            pixelOffset: new Cesium.Cartesian2(0, -9)
-        }
     });
-
 }
+
+var handler = new Cesium.ScreenSpaceEventHandler(viewer.scene.canvas);
+
+function enableListener() {
+    handler.setInputAction(action, Cesium.ScreenSpaceEventType.LEFT_CLICK);
+}
+
+function disableListener() {
+    handler.removeInputAction(Cesium.ScreenSpaceEventType.LEFT_CLICK);
+}
+
+function action(click) {
+    var pickedObject = viewer.scene.pick(click.position);
+    console.log(pickedObject);
+    if (Cesium.defined(pickedObject)) {
+        console.log(pickedObject);
+    }
+}
+
+enableListener();
 
 /*Renders the filter preferences and adds the click event on each element, settinf the correct value to the dropdown button and filtering the list based on the event sender
   @list list of each filter. Example : 'Building'
 */
 function renderFilter(list) {
-    if (list.size != 0) {
-        for (var v of list) {
-            $("#dd_preferences").append('<li class="preference"><a>' + v + '</a></li>');
-        }
-    } else {
-        console.log("list size 0");
+    for (var v of list) {
+        $("#dd_preferences").append('<li class="preference"><a>' + v + '</a></li>');
     }
     $(".preference").click((function (e) {
         var filterType = e.delegateTarget.innerText;
@@ -307,9 +356,9 @@ function loadJSON(filepath, callback) {
 function filterList(filterType, viewer) {
     for (var i = 0; i < viewer.entities._entities._array.length; i++) {
         if (filterType.indexOf(viewer.entities._entities._array[i]._type) <= -1) {
-            viewer.entities._entities._array[i]._filtered = false;
-        } else {
             viewer.entities._entities._array[i]._filtered = true;
+        } else {
+            viewer.entities._entities._array[i]._filtered = false;
         }
     }
 }

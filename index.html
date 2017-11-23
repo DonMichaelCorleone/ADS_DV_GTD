@@ -9,7 +9,7 @@
     <!-- Make the application on mobile take up the full browser screen and disable user scaling. -->
     <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, minimum-scale=1, user-scalable=no">
 
-    <title>Axiell Cesium view</title>
+    <title>Global Terrorism over time</title>
 
     <link href="http://cesiumjs.org/releases/1.15/Build/Cesium/Widgets/widgets.css" rel="stylesheet" />
     <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css" integrity="sha384-BVYiiSIFeK1dGmJRAkycuHAHRg32OmUcww7on3RYdg4Va+PmSTsz/K68vbdEjh4u" crossorigin="anonymous">
@@ -21,11 +21,22 @@
     <script src="https://code.jquery.com/jquery-3.2.1.min.js"></script>
     <script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/js/bootstrap.min.js" integrity="sha384-Tc5IQib027qvyjSMfHjOMaLkfuWVxZxUPnCJA7l2mCWNIpG9mGCD8wGNIcPD7Txa" crossorigin="anonymous"></script>
     <script src="/Build/Cesium/Cesium.js"></script>
+    <script lang="javascript" src="/dist/xlsx.core.min.js"></script>
+      <link rel="stylesheet" href="//code.jquery.com/ui/1.12.1/themes/base/jquery-ui.css">
+  <script src="https://code.jquery.com/jquery-1.12.4.js"></script>
+  <script src="https://code.jquery.com/ui/1.12.1/jquery-ui.js"></script>
+
+     
 
     <style>
       html, body, #timeControlsContainer {
       width: 100%; height: 100%; margin: 0; padding: 0; overflow: hidden;
       font-family: sans-serif;
+        }
+        #presets_locations li {
+          max-height:250px;/* you can change as you need it */
+          overflow:auto;
+
         }
     </style>
   </head>
@@ -37,7 +48,7 @@
       
       
       <!--#controlPanel : Container of additional user controls -->
-      <div id="controlPanel">Control panel<p>
+      <div id="controlPanel">
       <label>
         <input id="cb_toggle_display" type="checkbox" unchecked />
         <span>Enable preferences</span>
@@ -59,13 +70,19 @@
       </div>
        <hr>
       </hr>
+      <div id="slider"></div>
+        <hr>
+      </hr>
       <form id="themeSelection"></form>
     </div>
 
   </body>
+    <!--Script nessecary for Geocoder services from Google-->
+ 
+
   <!--Core JavaScript logic-->
   <script src="main.js"></script>
-  <!--Script nessecary for Geocoder services from Google-->
-  <script async defer src="https://maps.googleapis.com/maps/api/js?key=AIzaSyD829u5au5uuua7yfwKQ-o3ZNmR3HbHGnc"></script>
-
+<!-- <script src="https://maps.googleapis.com/maps/api/js?sensor=false&callback=initMap" async defer></script> -->
+<!-- <script async defer src="https://maps.googleapis.com/maps/api/js?key=AIzaSyCYxCJJJjlui3Ps4VIgffyjCZ_hzLGXtpM"></script> -->
+<script async defer src="https://maps.googleapis.com/maps/api/js?key=AIzaSyD829u5au5uuua7yfwKQ-o3ZNmR3HbHGnc"></script> 
 </html>
